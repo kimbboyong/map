@@ -15,12 +15,8 @@
     <div id="map" style="width:60%;height:600px;margin:0 auto;"></div>
 
     <script>
-        var map = new naver.maps.Map('map', mapOptions);
 
-        var mapOptions = {
-            center: new naver.maps.LatLng(37.3595704, 127.105399),
-            zoom: 10
-        };
+
 
         var polygon = new naver.maps.Polygon({
             map: map,
@@ -32,18 +28,111 @@
             strokeWeight: 3,
             clickable: true
         });
+        var map = new naver.maps.Map('map', {
+            zoomControl: true,
+            zoomControlOptions: {
+                style: naver.maps.ZoomControlStyle.LARGE,
+                position: naver.maps.Position.TOP_RIGHT
+            },
+            mapTypeControl: true,
+            zoom: 7
+        });
 
-        naver.maps.Event.addListener(map, 'click', function (e) {
+        var mapOptions = {
+            center: new naver.maps.LatLng(37.3595704, 127.105399),
+            zoom: 10
+        };
 
-            var point = e.latlng;
+        // 오버레이를 매니저에 추가
+        var rect = new naver.maps.Rectangle({
+            map: map,
+            bounds: [125.6195858, 37.1928595, 126.5689034, 37.8594302],
+            fillColor: '#00bf46',
+            fillOpacity: 0.4,
+            strokeWeight: 2,
+            strokeColor: '#00bf46'
+        });
 
-            var path = polygon.getPaths().getAt(0);
-            path.push(point);
+        // 오버레이의 setEditable을 직접 호출
+        var rect2 = new naver.maps.Rectangle({
+            map: map,
+            bounds: [124.2220128, 37.1928595, 125.1587723, 37.8594302],
+            fillColor: '#bf0091',
+            fillOpacity: 0.4,
+            strokeWeight: 2,
+            strokeColor: '#bf0091'
+        });
+        rect2.setEditable(true);
 
-            new naver.maps.Marker({
+        var drawingManager;
+        naver.maps.Event.once(map, 'init', function () {
+            drawingManager = new naver.maps.drawing.DrawingManager({
                 map: map,
-                position: point
+                drawingControl: [
+                    naver.maps.drawing.DrawingMode.POLYLINE,
+                    naver.maps.drawing.DrawingMode.POLYGON,
+                    naver.maps.drawing.DrawingMode.ELLIPSE,
+                    naver.maps.drawing.DrawingMode.RECTANGLE
+                ],
+                drawingControlOptions: {
+                    position: naver.maps.Position.TOP_CENTER,
+                    style: naver.maps.drawing.DrawingStyle.VERTICAL
+                },
+                controlPointOptions: {
+                    anchorPointOptions: {
+                        radius: 5,
+                        fillColor: '#ff0000',
+                        strokeColor: '#0000ff',
+                        strokeWeight: 2
+                    },
+                    midPointOptions: {
+                        radius: 4,
+                        fillColor: '#ff0000',
+                        strokeColor: '#0000ff',
+                        strokeWeight: 2,
+                        fillOpacity: 0.5
+                    }
+                },
+                rectangleOptions: {
+                    fillColor: '#ff0000',
+                    fillOpacity: 0.5,
+                    strokeWeight: 3,
+                    strokeColor: '#ff0000'
+                },
+                ellipseOptions: {
+                    fillColor: '#ff25dc',
+                    fillOpacity: 0.5,
+                    strokeWeight: 3,
+                    strokeColor: '#ff25dc'
+                },
+                polylineOptions: { // 화살표 아이콘 계열 옵션은 무시됩니다.
+                    strokeColor: '#222',
+                    strokeWeight: 3
+                },
+                arrowlineOptions: { // startIcon || endIcon 옵션이 없으면 endIcon을 BLOCK_OPEN으로 설정합니다.
+                    endIconSize: 16,
+                    strokeWeight: 3
+                },
+                polygonOptions: {
+                    fillColor: '#ffc300',
+                    fillOpacity: 0.5,
+                    strokeWeight: 3,
+                    strokeColor: '#ffc300'
+                },
+                markerOptions: {
+                    icon: {
+                        content: '<img src="' + HOME_PATH + '/img/example/pin_default.png" alt="" ' +
+                            'style="margin:0px;padding:0px;border:0px solid transparent;display:block;max-width:none;max-height:none; ' +
+                            '-webkit-user-select: none; position: absolute; width: 22px; height: 35px; left: 0px; top: 0px;">',
+                        size: new naver.maps.Size(22, 35),
+                        anchor: new naver.maps.Point(11, 35)
+                    }
+                }
             });
+
+            // 옵션 조정
+            drawingManager.setOptions('drawingControlOptions', { position: naver.maps.Position.RIGHT_CENTER });
+            drawingManager.addDrawing(rect, naver.maps.drawing.DrawingMode.RECTANGLE, 'my-id');
         });
     </script>
 </body>
