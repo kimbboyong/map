@@ -19,6 +19,7 @@
         tabindex="0">
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script>
         var map = new naver.maps.Map('map', {
             zoomControl: true,
@@ -27,148 +28,146 @@
                 position: naver.maps.Position.TOP_RIGHT
             },
             mapTypeControl: true,
-            zoom: 7
+            zoom: 5
         });
 
-        // 오버레이를 매니저에 추가
-        var rect = new naver.maps.Rectangle({
-            map: map,
-            bounds: [125.6195858, 37.1928595, 126.5689034, 37.8594302],
-            fillColor: '#00bf46',
-            fillOpacity: 0.4,
-            strokeWeight: 2,
-            strokeColor: '#00bf46'
+        var HOME_PATH = window.HOME_PATH || '.',
+            urlPrefix = HOME_PATH + '/data/region',
+            urlSuffix = '.json',
+            regionGeoJson = [],
+            loadCount = 0;
+
+        var map = new naver.maps.Map(document.getElementById('map'), {
+            zoom: 7,
+            mapTypeId: 'normal',
+            center: new naver.maps.LatLng(36.4203004, 128.317960)
         });
 
-        // 오버레이의 setEditable을 직접 호출
-        var rect2 = new naver.maps.Rectangle({
-            map: map,
-            bounds: [124.2220128, 37.1928595, 125.1587723, 37.8594302],
-            fillColor: '#bf0091',
-            fillOpacity: 0.4,
-            strokeWeight: 2,
-            strokeColor: '#bf0091'
-        });
-        rect2.setEditable(true);
-
-        var drawingManager;
         naver.maps.Event.once(map, 'init', function () {
-            drawingManager = new naver.maps.drawing.DrawingManager({
-                map: map,
-                drawingControl: [
-                    naver.maps.drawing.DrawingMode.POLYLINE,
-                    naver.maps.drawing.DrawingMode.POLYGON,
-                    naver.maps.drawing.DrawingMode.ELLIPSE,
-                    naver.maps.drawing.DrawingMode.RECTANGLE
-                ],
-                drawingControlOptions: {
-                    position: naver.maps.Position.TOP_CENTER,
-                    style: naver.maps.drawing.DrawingStyle.VERTICAL
-                },
-                controlPointOptions: {
-                    anchorPointOptions: {
-                        radius: 5,
-                        fillColor: '#ff0000',
-                        strokeColor: '#0000ff',
-                        strokeWeight: 2
-                    },
-                    midPointOptions: {
-                        radius: 4,
-                        fillColor: '#ff0000',
-                        strokeColor: '#0000ff',
-                        strokeWeight: 2,
-                        fillOpacity: 0.5
-                    }
-                },
-                rectangleOptions: {
+            for (var i = 1; i < 18; i++) {
+                var keyword = i + '';
+
+                if (keyword.length === 1) {
+                    keyword = '0' + keyword;
+                }
+
+                $.ajax({
+                    url: urlPrefix + keyword + urlSuffix,
+                    success: function (idx) {
+                        return function (geojson) {
+                            regionGeoJson[idx] = geojson;
+
+                            loadCount++;
+
+                            if (loadCount === 17) {
+                                startDataLayer();
+                            }
+                        }
+                    }(i - 1)
+                });
+            }
+        });
+
+        var tooltip = $('<div style="position:absolute;z-index:1000;padding:5px 10px;background-color:#fff;border:solid 2px #000;font-size:14px;pointer-events:none;display:none;"></div>');
+
+        tooltip.appendTo(map.getPanes().floatPane);
+
+        function startDataLayer() {
+            map.data.setStyle(function (feature) {
+                var styleOptions = {
                     fillColor: '#ff0000',
-                    fillOpacity: 0.5,
-                    strokeWeight: 3,
-                    strokeColor: '#ff0000'
-                },
-                ellipseOptions: {
-                    fillColor: '#ff25dc',
-                    fillOpacity: 0.5,
-                    strokeWeight: 3,
-                    strokeColor: '#ff25dc'
-                },
-                polylineOptions: { // 화살표 아이콘 계열 옵션은 무시됩니다.
-                    strokeColor: '#222',
-                    strokeWeight: 3
-                },
-                arrowlineOptions: { // startIcon || endIcon 옵션이 없으면 endIcon을 BLOCK_OPEN으로 설정합니다.
-                    endIconSize: 16,
-                    strokeWeight: 3
-                },
-                polygonOptions: {
-                    fillColor: '#ffc300',
-                    fillOpacity: 0.5,
-                    strokeWeight: 3,
-                    strokeColor: '#ffc300'
-                },
-                markerOptions: {
-                    icon: {
-                        content: '<img src="' + HOME_PATH + '/img/example/pin_default.png" alt="" ' +
-                            'style="margin:0px;padding:0px;border:0px solid transparent;display:block;max-width:none;max-height:none; ' +
-                            '-webkit-user-select: none; position: absolute; width: 22px; height: 35px; left: 0px; top: 0px;">',
-                        size: new naver.maps.Size(22, 35),
-                        anchor: new naver.maps.Point(11, 35)
-                    }
+                    fillOpacity: 0.0001,
+                    strokeColor: '#ff0000',
+                    strokeWeight: 2,
+                    strokeOpacity: 0.4
+                };
+
+                if (feature.getProperty('focus')) {
+                    styleOptions.fillOpacity = 0.6;
+                    styleOptions.fillColor = '#0f0';
+                    styleOptions.strokeColor = '#0f0';
+                    styleOptions.strokeWeight = 4;
+                    styleOptions.strokeOpacity = 1;
+                }
+
+                return styleOptions;
+            });
+
+            regionGeoJson.forEach(function (geojson) {
+                map.data.addGeoJson(geojson);
+            });
+
+            map.data.addListener('click', function (e) {
+                var feature = e.feature;
+
+                if (feature.getProperty('focus') !== true) {
+                    feature.setProperty('focus', true);
+                } else {
+                    feature.setProperty('focus', false);
                 }
             });
 
-            // 옵션 조정
-            drawingManager.setOptions('drawingControlOptions', { position: naver.maps.Position.RIGHT_CENTER });
-            drawingManager.addDrawing(rect, naver.maps.drawing.DrawingMode.RECTANGLE, 'my-id');
+            map.data.addListener('mouseover', function (e) {
+                var feature = e.feature,
+                    regionName = feature.getProperty('area1');
+
+                tooltip.css({
+                    display: '',
+                    left: e.offset.x,
+                    top: e.offset.y
+                }).text(regionName);
+
+                map.data.overrideStyle(feature, {
+                    fillOpacity: 0.6,
+                    strokeWeight: 4,
+                    strokeOpacity: 1
+                });
+            });
+
+            map.data.addListener('mouseout', function (e) {
+                tooltip.hide().empty();
+                map.data.revertStyle();
+            });
+        }
+
+
+
+        // 오버레이 추가
+        var rect = new naver.maps.Rectangle({
+            map: map,
+            bounds: [126.96744, 37.561622, 126.9737437, 37.5668781],
+            fillColor: '#ff0000',
+            fillOpacity: 0.4,
+            strokeWeight: 2,
+            strokeColor: '#ff0000'
         });
 
+        var polygon = new naver.maps.Polygon({
+            map: map,
+            paths: [
+                [126.9797895, 37.5670131],
+                [126.979215, 37.5649555],
+                [126.9766789, 37.5649082],
+                [126.9789515, 37.5637645],
+                [126.9785598, 37.5614914],
+                [126.9804949, 37.5632666],
+                [126.9827689, 37.5619065],
+                [126.9818039, 37.5639213],
+                [126.9837414, 37.5653719],
+                [126.9811162, 37.5651081]
+            ],
+            fillColor: '#ff0000',
+            fillOpacity: 0.4,
+            strokeWeight: 2,
+            strokeColor: '#ff0000'
+        });
 
-        // var map = new naver.maps.Map('map', {
-        //     zoomControl: true,
-        //     zoomControlOptions: {
-        //         style: naver.maps.ZoomControlStyle.LARGE,
-        //         position: naver.maps.Position.TOP_RIGHT
-        //     },
-        //     mapTypeControl: true,
-        //     zoom: 5
-        // });
-
-        // // 오버레이 추가
-        // var rect = new naver.maps.Rectangle({
-        //     map: map,
-        //     bounds: [126.96744, 37.561622, 126.9737437, 37.5668781],
-        //     fillColor: '#ff0000',
-        //     fillOpacity: 0.4,
-        //     strokeWeight: 2,
-        //     strokeColor: '#ff0000'
-        // });
-
-        // var polygon = new naver.maps.Polygon({
-        //     map: map,
-        //     paths: [
-        //         [126.9797895, 37.5670131],
-        //         [126.979215, 37.5649555],
-        //         [126.9766789, 37.5649082],
-        //         [126.9789515, 37.5637645],
-        //         [126.9785598, 37.5614914],
-        //         [126.9804949, 37.5632666],
-        //         [126.9827689, 37.5619065],
-        //         [126.9818039, 37.5639213],
-        //         [126.9837414, 37.5653719],
-        //         [126.9811162, 37.5651081]
-        //     ],
-        //     fillColor: '#ff0000',
-        //     fillOpacity: 0.4,
-        //     strokeWeight: 2,
-        //     strokeColor: '#ff0000'
-        // });
-
-        // var drawingManager;
-        // naver.maps.Event.once(map, 'init', function () {
-        //     drawingManager = new naver.maps.drawing.DrawingManager({ map: map });
-        //     drawingManager.addDrawing(rect, naver.maps.drawing.DrawingMode.RECTANGLE, 'my-id');
-        //     drawingManager.addDrawing(polygon, naver.maps.drawing.DrawingMode.POLYGON);
-        // });
+        var drawingManager;
+        naver.maps.Event.once(map, 'init', function () {
+            drawingManager = new naver.maps.drawing.DrawingManager({ map: map });
+            drawingManager.addDrawing(rect, naver.maps.drawing.DrawingMode.RECTANGLE, 'my-id');
+            drawingManager.addDrawing(polygon, naver.maps.drawing.DrawingMode.POLYGON);
+        });
     </script>
 </body>
 
